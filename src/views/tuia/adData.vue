@@ -1,0 +1,363 @@
+<style rel="stylesheet/scss" lang="scss">
+
+</style>
+
+<template>
+    <div>
+        <div class="info_flow_content" @click="bodyEvent">
+            <div class="menuNav">
+                <p><i class="nav_index"></i><span v-for="(c, i) in menu_nav" :key="i"><i
+                    class="el-icon-arrow-right"></i><em>{{c}}</em></span></p>
+            </div>
+            <div class="info_ad_search">
+                <div class="info_a_s_content">
+                    <div class="customerProCitySearch" style="padding: 22px 0">
+                        <div class="block">
+                            <span class="demonstration">选择日期</span>
+                            <el-date-picker
+                                v-model="dateValue"
+                                type="daterange"
+                                align="right"
+                                placeholder="选择时间范围"
+                                @change="dateChange"
+                                :picker-options="pickerOptions2">
+                            </el-date-picker>
+                        </div>
+                        <el-select v-model="customer_items.model_value"
+                                   :placeholder="customer_items.placeHolder" class="con_select unBorderRadius"
+                                   @change="channelAdinfo" clearable>
+                            <el-option
+                                v-for="item in customer_items.options"
+                                :key="item"
+                                :label="item"
+                                :value="item">
+                            </el-option>
+                        </el-select>
+                        <el-select v-model="contract_items.model_value"
+                                   :placeholder="contract_items.placeHolder" class="con_select unBorderRadius"
+                                   clearable>
+                            <el-option
+                                v-for="item in contract_items.options"
+                                :key="item.adNo"
+                                :label="item.adName"
+                                :value="item.adNo">
+                            </el-option>
+                        </el-select>
+                        <el-button class="page_d_s_button" @click="pageInfo(1)">查询</el-button>
+                        <div class="dateBut" @click="newContract">
+                             <el-button type="primary" @click.stop="importData" :style="{'margin-left':'29px'}">导出数据
+                            </el-button>
+                        </div>
+                        <div class="realTimeCitySearch">
+                            <el-input v-model="adNo" class="page_d_select" placeholder="请输入广告ID"></el-input><!--
+					  -->
+                            <el-button class="page_d_s_button" @click.stop="pageInfo(2)">搜索</el-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="info_ad_table">
+                <div class="page_d_title">
+                    <i style="visibility:hidden;"></i><span></span>
+                    <div class="tableVisibleMenu">
+                        <p class="visibleMenuBut" @click="changeCheckStatus($event)"></p>
+                        <div class="visibleMenuSelect" v-if="visibleMenuSelectStatus" @click="preventDefault($event)">
+                            <el-checkbox-group
+                                v-model="checkedCities"
+                                :min="1"
+                                @change="checkedChange">
+                                <el-checkbox v-for="city in cities" :label="city" :key="city">{{city}}</el-checkbox>
+                            </el-checkbox-group>
+                        </div>
+                    </div>
+                </div>
+                <div class="tableDetail">
+                    <el-table
+                        :data="tableData"
+                        v-loading="loading"
+                        border
+                        stripe
+                        style="width: 100%"
+                    >
+                        <el-table-column
+                            v-for="(c, i) in table_column"
+                            :key="i"
+                            :fixed="c.fixed"
+                            :sortable="c.sortable"
+                            :prop="c.prop"
+                            :label="c.label"
+                            :formatter="c.format"
+                            width=""
+                            min-width="100"
+                            v-if="c.visible">
+                        </el-table-column>
+                    </el-table>
+                </div>
+            </div>
+            <!-- <div class="con_pager">
+                <div class="block">
+                    <el-pagination
+                        @size-change="handleSizeChange"
+                        @current-change="handleCurrentChange"
+                        :current-page.sync="page.currentPage"
+                        :page-sizes="page.sizes"
+                        :page-size="page.limit"
+                        layout="total, sizes, prev, pager, next, jumper"
+                        :total="page.count">
+                    </el-pagination>
+                </div>
+            </div> -->
+        </div>
+    </div>
+</template>
+
+<script>
+export default {
+    data () {
+        return {
+            visibleMenuSelectStatus: false,
+            checkedCities: ['日期', '广告名', '广告平台', '广告展现', '广告点击', '广告点击率', '广告ID'],
+            cities: ['日期', '广告名', '广告平台', '广告展现', '广告点击', '广告点击率', '广告ID'],
+            citiesFilterVal: ['date', 'adName', 'originName', 'adViewVolume', 'adClickVolume', 'adClickRate', 'adNo'],
+            table_column: [
+                { fixed: true, prop: 'date', label: '日期', sortable: true, visible: true },
+                { fixed: false, prop: 'adName', label: '广告名', sortable: false, visible: true },
+                { fixed: false, prop: 'originName', label: '广告平台', sortable: false, visible: true },
+                { fixed: false, prop: 'adViewVolume', label: '广告展现', sortable: false, visible: true },
+                { fixed: false, prop: 'adClickVolume', label: '广告点击', sortable: false, visible: true },
+                { fixed: false, prop: 'adClickRate', label: '广告点击率', sortable: false, visible: true },
+                { fixed: false, prop: 'adNo', label: '广告ID', sortable: false, visible: true },
+            ],
+            page: {
+                sizes: [10, 20, 30, 50],
+                offset: 1,
+                limit: 10,
+                count: 0,
+                currentPage: 1,
+            },
+            menu_nav: ['推啊数据管理', '广告数据'
+            ],
+            customer_items: {
+                model_value: '',
+                placeHolder: '全部渠道',
+                options: [
+                ]
+            },
+            contract_items: {
+                model_value: '',
+                placeHolder: '全部广告',
+                options: []
+            },
+            tableData: [
+            ],
+            loading: false,
+            pickerOptions2: {
+                shortcuts: [{
+                    text: '最近一周',
+                    onClick (picker) {
+                        const end = new Date();
+                        const start = new Date();
+                        start.setTime(start.getTime() - 3600 * 1000 * 24 * 7);
+                        picker.$emit('pick', [start, end]);
+                    }
+                }, {
+                    text: '最近一个月',
+                    onClick (picker) {
+                        const end = new Date();
+                        const start = new Date();
+                        start.setTime(start.getTime() - 3600 * 1000 * 24 * 30);
+                        picker.$emit('pick', [start, end]);
+                    }
+                }, {
+                    text: '最近三个月',
+                    onClick (picker) {
+                        const end = new Date();
+                        const start = new Date();
+                        start.setTime(start.getTime() - 3600 * 1000 * 24 * 90);
+                        picker.$emit('pick', [start, end]);
+                    }
+                }]
+            },
+            dateValue: '',
+            params: {
+                date: '',
+                startDate: '',
+                endDate: ''
+            },
+            contractNo: '',
+            adNo: ''
+        };
+    },
+    activated () {
+        this.channelInfo();
+        // this.openFullScreen();
+    },
+    created () {
+    },
+    methods: {
+        /*渠道*/
+        channelInfo () {
+            this.$http({
+                method: 'get',
+                url: this.apiUrl.tuiaAdminChannelList,
+            }).then(res => {
+                if (res.status == 200) {
+                    var data = res.data;
+                    this.customer_items.options = data;
+                } else {
+                }
+            }).catch(error => {
+                console.log(error);
+            });
+        },
+        /*广告列表*/
+        pageInfo (id) {
+            if (id == 1) {
+                if (this.dateValue == '') {
+                    this.$message({
+                        type: 'warning',
+                        message: '请选择时间'
+                    });
+                    return false;
+                }
+                if (this.customer_items.model_value == '') {
+                    this.$message({
+                        type: 'warning',
+                        message: '请选择渠道'
+                    });
+                    return false;
+                }
+                var adNo = this.contract_items.model_value;
+                var data = {
+                    adNo: adNo,
+                    etime: this.params.endDate,
+                    stime: this.params.startDate,
+                    origin: this.customer_items.model_value,
+                    gameNo: "",
+                };
+            }
+            if (id == 2) {
+                if (this.dateValue == '') {
+                    this.$message({
+                        type: 'warning',
+                        message: '请选择时间'
+                    });
+                    return false;
+                }
+                if(this.adNo==''){
+                    this.$message({
+                        type:'warning',
+                        message:'广告ID不能为空'
+                    });
+                    return false;
+                }
+                var adNo = this.adNo;
+                var data = {
+                    adNo: adNo,
+                    etime: this.params.endDate,
+                    stime: this.params.startDate,
+                    origin: this.customer_items.model_value,
+                    gameNo: "",
+                };
+            }
+            this.loading = true;
+            this.$http({
+                method: 'post',
+                url: this.apiUrl.tuiaAdminLogAdData,
+                data: data
+            }).then(res => {
+                if (res.status == 200) {
+                    var data = res.data.sdds;
+                    for (var key in data) {
+                        for (var index in this.contract_items.options) {
+                            if (data[key].adNo == this.contract_items.options[index].adNo) {
+                                data[key].adName = this.contract_items.options[index].adName;
+                            }
+                        }
+                    }
+                    this.tableData = data;
+                    this.loading = false;
+                } else {
+                }
+            }).catch(error => {
+                console.log(error);
+            });
+        },
+        /*渠道下广告*/
+        channelAdinfo () {
+            this.contract_items.model_value = '',
+                this.$http({
+                    method: 'get',
+                    url: this.apiUrl.tuiaAdminChannelAdlist,
+                    params: { channel: this.customer_items.model_value }
+                }).then(res => {
+                    if (res.status == 200) {
+                        var data = res.data.adListResponse;
+                        this.contract_items.options = data;
+                    }
+                }).catch();
+        },
+        handleCurrentChange (val) {
+            this.page.offset = val;
+            this.pageInfo();
+        },
+        handleSizeChange (val) {
+            this.page.limit = val;
+            this.pageInfo();
+        },
+        checkedChange () {
+            for (let item of this.table_column) {
+                var index = this.checkedCities.indexOf(item.label);
+                index >= 0 ? item.visible = true : item.visible = false;
+            }
+        },
+        changeCheckStatus (e) {
+            e.stopPropagation();
+            this.visibleMenuSelectStatus = !this.visibleMenuSelectStatus;
+        },
+        newContract () {
+            this.$router.push({ path: 'cusContractNew', query: { customerContractId: '' } });
+        },
+        bodyEvent () {
+            this.visibleMenuSelectStatus = false;
+        },
+        preventDefault (e) {
+            e.stopPropagation();
+        },
+        /*改变时间选择器*/
+        dateChange () {
+            if (this.dateValue != '' && typeof this.dateValue != 'undefined' && this.dateValue[0] != null && this.dateValue[1] != null) {
+                this.params.startDate = this.formatDateTime(this.dateValue[0], 'y-m-d') + ' 00:00:00.000';
+                this.params.endDate = this.formatDateTime(this.dateValue[1], 'y-m-d') + ' 23:59:59.999';
+                var str = this.params.startDate.substr(0, 10);
+                var str2 = this.params.endDate.substr(0, 10);
+                this.params.date = str + '/' + str2;
+            } else {
+                this.params.startDate = '';
+                this.params.endDate = '';
+            }
+        },
+        /*导出*/
+        importData () {
+            if (this.tableData.length == 0) {
+                this.$message({
+                    type: 'info',
+                    message: '请查询数据'
+                });
+                return false;
+            }
+            let tHeader = this.cities;
+            let filterVal = this.citiesFilterVal;
+            let importData = this.tableData;
+            let fileName = [this.params.date, this.customer_items.model_value, (this.adNo == '' ? this.contract_items.model_value : this.adNo), '广告数据'].join('_');
+            this.handleDownload(tHeader, filterVal, importData, fileName);
+        },
+        exitEvent (id, name) {
+            // console.log(id);
+            this.$router.push({ path: 'cusContractEdit', query: { customerContractId: id, titleName: name } });
+        }
+    }
+};
+</script>
+
+
